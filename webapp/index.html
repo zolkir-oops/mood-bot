@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>💕 Настроение</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+:root {
+  --bg:      #FFF0F6;
+  --bg2:     #FFE0EF;
+  --surface: #FFFFFF;
+  --pink:    #FF5FA0;
+  --pink-d:  #E03580;
+  --pink-l:  #FFB6D3;
+  --pink-ll: #FFD6E8;
+  --gold:    #FFB700;
+  --text:    #3D1A2E;
+  --muted:   #B06E8E;
+  --sh:      rgba(255,95,160,0.13);
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Nunito', -apple-system, sans-serif;
+  overscroll-behavior: none;
+  user-select: none;
+  min-height: 100vh;
+}
+
+/* sparkle particles */
+.sparkles-bg { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+.sp {
+  position: absolute;
+  animation: sp-rise linear infinite;
+  opacity: 0;
+}
+@keyframes sp-rise {
+  0%   { transform: translateY(0) rotate(0deg) scale(.7); opacity:0; }
+  10%  { opacity:.85; }
+  90%  { opacity:.6; }
+  100% { transform: translateY(-110vh) rotate(400deg) scale(1.3); opacity:0; }
+}
+
+.app { position:relative; z-index:1; }
+
+/* ── header ─── */
+.header {
+  background: linear-gradient(150deg, #FFD6E8 0%, #FFAFD0 55%, #FF85B3 100%);
+  padding: 18px 20px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content:'';
+  position:absolute; top:-50px; right:-40px;
+  width:160px; height:160px;
+  background: radial-gradient(circle, rgba(255,255,255,.32) 0%, transparent 70%);
+  border-radius:50%;
+}
+.header::after {
+  content:'';
+  position:absolute; bottom:-35px; left:-25px;
+  width:120px; height:120px;
+  background: radial-gradient(circle, rgba(255,255,255,.18) 0%, transparent 70%);
+  border-radius:50%;
+}
+.header-top { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.logo-box {
+  width:42px; height:42px;
+  background: rgba(255,255,255,.38);
+  border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter: blur(6px);
+  flex-shrink:0;
+}
+.app-name { font-size:21px; font-weight:900; color:#fff; letter-spacing:-.3px; text-shadow:0 1px 5px rgba(180,20,90,.22); }
+.app-sub  { font-size:12px; color:rgba(255,255,255,.75); font-weight:700; margin-top:-1px; }
+.month-nav { display:flex; align-items:center; justify-content:space-between; position:relative; z-index:1; }
+.month-name { font-size:22px; font-weight:900; color:#fff; letter-spacing:-.4px; text-shadow:0 1px 8px rgba(180,20,90,.2); }
+.nav-btn {
+  width:36px; height:36px; border-radius:50%; border:none;
+  background:rgba(255,255,255,.3); color:#fff;
+  font-size:20px; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(4px);
+  transition:transform .12s, background .12s;
+}
+.nav-btn:active { transform:scale(.86); background:rgba(255,255,255,.5); }
+
+/* ── weekdays ─── */
+.weekdays {
+  display:grid; grid-template-columns:repeat(7,1fr);
+  padding:12px 10px 6px;
+  background:var(--surface);
+}
+.weekdays span {
+  text-align:center; font-size:11px; font-weight:800;
+  color:var(--muted); letter-spacing:.4px; text-transform:uppercase;
+}
+.weekdays span:nth-child(6), .weekdays span:nth-child(7) { color:var(--pink); }
+
+/* ── calendar ─── */
+.calendar {
+  display:grid; grid-template-columns:repeat(7,1fr);
+  padding:4px 8px 10px; background:var(--surface); gap:2px;
+}
+.day-cell {
+  display:flex; flex-direction:column; align-items:center;
+  padding:3px 1px 5px; border-radius:14px; cursor:pointer;
+  min-height:60px;
+  transition:background .12s, transform .12s;
+}
+.day-cell:active { background:var(--pink-ll); transform:scale(.93); }
+.day-cell.empty  { pointer-events:none; }
+
+.day-num {
+  width:34px; height:34px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:700; flex-shrink:0;
+  transition:all .2s cubic-bezier(.34,1.56,.64,1);
+}
+.day-cell.has-entries .day-num { color:var(--pink-d); }
+.day-cell.today .day-num {
+  border:2.5px solid var(--pink); color:var(--pink); font-weight:800;
+}
+.day-cell.selected .day-num {
+  background:linear-gradient(135deg, var(--pink) 0%, var(--pink-d) 100%);
+  color:#fff; font-weight:800;
+  box-shadow:0 4px 14px rgba(255,95,160,.45);
+  transform:scale(1.1);
+}
+.day-cell.weekend:not(.selected) .day-num { color:var(--pink); }
+
+.day-dots {
+  display:flex; flex-wrap:wrap; gap:0;
+  justify-content:center; max-width:42px; margin-top:2px;
+}
+.day-dot { font-size:11px; line-height:1.2; }
+
+/* ── stats ─── */
+.stats-section { background:var(--bg); padding:14px 16px 18px; margin-top:8px; }
+.section-title {
+  font-size:11px; font-weight:800; text-transform:uppercase;
+  letter-spacing:.6px; color:var(--muted); margin-bottom:10px;
+  display:flex; align-items:center; gap:5px;
+}
+.chips { display:flex; flex-wrap:wrap; gap:7px; }
+.chip {
+  display:flex; align-items:center; gap:5px;
+  background:var(--surface); border:1.5px solid var(--pink-ll);
+  border-radius:20px; padding:5px 12px; font-size:14px;
+  box-shadow:0 2px 8px var(--sh);
+}
+.chip .cnt { font-size:12px; font-weight:800; color:var(--pink); }
+.no-hint { color:var(--muted); font-size:14px; font-weight:600; text-align:center; padding:8px; }
+
+/* ── overlay ─── */
+.overlay {
+  position:fixed; inset:0;
+  background:rgba(61,26,46,.45);
+  opacity:0; pointer-events:none;
+  transition:opacity .28s; z-index:10;
+  backdrop-filter:blur(2px);
+}
+.overlay.visible { opacity:1; pointer-events:all; }
+
+/* ── sheet ─── */
+.sheet {
+  position:fixed; bottom:0; left:0; right:0;
+  background:var(--bg);
+  border-radius:26px 26px 0 0;
+  transform:translateY(100%);
+  transition:transform .36s cubic-bezier(.32,.72,0,1);
+  z-index:20; max-height:80vh;
+  display:flex; flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom, 16px);
+  box-shadow:0 -8px 40px rgba(200,30,100,.18);
+}
+.sheet.open { transform:translateY(0); }
+
+.sheet-handle {
+  width:40px; height:4px;
+  background:var(--pink-l); border-radius:2px;
+  margin:12px auto 0; flex-shrink:0; opacity:.6;
+}
+
+.sheet-hdr {
+  padding:14px 20px 14px;
+  background:linear-gradient(135deg, #FFD6E8 0%, #FFAFD0 100%);
+  flex-shrink:0; position:relative; overflow:hidden;
+}
+.sheet-hdr::after {
+  content:'✦  ✧  ✦';
+  position:absolute; right:16px; top:50%;
+  transform:translateY(-50%);
+  font-size:13px; color:rgba(255,255,255,.45); letter-spacing:5px;
+}
+.sheet-wday {
+  font-size:11px; font-weight:800; text-transform:uppercase;
+  letter-spacing:.6px; color:rgba(255,255,255,.8); margin-bottom:2px;
+}
+.sheet-day {
+  font-size:22px; font-weight:900; color:#fff;
+  letter-spacing:-.4px; text-shadow:0 1px 6px rgba(180,20,90,.2);
+}
+
+.sheet-scroll {
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:14px 14px 20px;
+  display:flex; flex-direction:column; gap:10px;
+}
+
+/* ── entry card ─── */
+.entry-card {
+  display:flex; align-items:center; gap:12px;
+  background:var(--surface);
+  border-radius:18px; padding:13px;
+  border:1.5px solid var(--pink-ll);
+  box-shadow:0 3px 12px var(--sh);
+  transition:opacity .22s, transform .22s;
+  position:relative; overflow:hidden;
+}
+.entry-card::before {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+  background:linear-gradient(180deg, var(--pink) 0%, var(--pink-l) 100%);
+  border-radius:4px 0 0 4px;
+}
+.entry-card.removing { opacity:0; transform:translateX(40px) scale(.92); }
+
+.entry-emoji-box {
+  width:48px; height:48px; border-radius:16px;
+  background:var(--bg2); border:1.5px solid var(--pink-ll);
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; flex-shrink:0;
+}
+.entry-body   { flex:1; min-width:0; }
+.entry-time   { font-size:16px; font-weight:800; }
+.entry-note   { font-size:13px; font-weight:600; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.del-btn {
+  width:36px; height:36px; border-radius:12px;
+  border:1.5px solid var(--pink-ll); background:var(--bg);
+  color:var(--muted); font-size:17px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:all .14s;
+}
+.del-btn:active { border-color:#FF3B30; background:#FFF0EF; color:#FF3B30; transform:scale(.88); }
+
+.empty-day { text-align:center; padding:28px 0 12px; }
+.empty-icon { font-size:42px; display:block; margin-bottom:8px; animation:bob 2.2s ease-in-out infinite; }
+.empty-lbl  { font-size:15px; font-weight:700; color:var(--muted); }
+@keyframes bob { 0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)} }
+
+/* tap burst */
+.burst { position:fixed; pointer-events:none; z-index:50; font-size:15px; animation:burst-up .6s ease-out forwards; }
+@keyframes burst-up {
+  0%   { transform:translate(-50%,-50%) scale(.5); opacity:1; }
+  100% { transform:translate(-50%,-100px) scale(1.5); opacity:0; }
+}
+</style>
+</head>
+<body>
+
+<div class="sparkles-bg" id="spbg"></div>
+
+<div class="app">
+
+  <div class="header">
+    <div class="header-top">
+      <div class="logo-box">
+        <!-- winged heart SVG -->
+        <svg width="28" height="22" viewBox="0 0 56 42" fill="none">
+          <path d="M11 18 C5 11,-2 13,0 20 C2 26,9 24,12 21" fill="rgba(255,255,255,.65)"/>
+          <path d="M13 15 C7 8, 1 8, 3 14 C5 19,11 18,13 15" fill="rgba(255,255,255,.4)"/>
+          <path d="M45 18 C51 11,58 13,56 20 C54 26,47 24,44 21" fill="rgba(255,255,255,.65)"/>
+          <path d="M43 15 C49 8,55 8,53 14 C51 19,45 18,43 15" fill="rgba(255,255,255,.4)"/>
+          <path d="M28 38 C28 38,8 24,8 14 C8 9,13 6,18 6 C22 6,25 8,28 13 C31 8,34 6,38 6 C43 6,48 9,48 14 C48 24,28 38,28 38Z" fill="white"/>
+          <circle cx="20" cy="13" r="2" fill="rgba(255,200,230,.8)"/>
+          <circle cx="24" cy="10" r="1.2" fill="rgba(255,200,230,.6)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="app-name">дневник</div>
+        <div class="app-sub">настроения ✨</div>
+      </div>
+    </div>
+    <div class="month-nav">
+      <button class="nav-btn" onclick="prevMonth()">‹</button>
+      <div class="month-name" id="month-name">Апрель 2026</div>
+      <button class="nav-btn" onclick="nextMonth()">›</button>
+    </div>
+  </div>
+
+  <div class="weekdays">
+    <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+  </div>
+
+  <div class="calendar" id="calendar"></div>
+
+  <div class="stats-section">
+    <div class="section-title"><span>✦</span> В этом месяце</div>
+    <div class="chips" id="stats"></div>
+  </div>
+
+</div>
+
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hdr">
+    <div class="sheet-wday" id="sheet-wday"></div>
+    <div class="sheet-day"  id="sheet-day"></div>
+  </div>
+  <div class="sheet-scroll" id="sheet-entries"></div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const MONTHS   = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MONTHS_G = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const WDAYS    = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+const CHARS    = ['✦','✧','✨','💕','🌸','⭐','✿','💫','🌷','꩜'];
+const API = window.location.origin;
+
+let year, month, monthData = {}, selectedDay = null;
+
+/* sparkles */
+(function(){
+  const bg = document.getElementById('spbg');
+  for (let i = 0; i < 20; i++) {
+    const s = document.createElement('span');
+    s.className = 'sp';
+    s.textContent = CHARS[i % CHARS.length];
+    s.style.cssText = `left:${Math.random()*100}vw;top:${55+Math.random()*45}vh;font-size:${9+Math.random()*13}px;animation-duration:${8+Math.random()*11}s;animation-delay:${Math.random()*10}s`;
+    bg.appendChild(s);
+  }
+})();
+
+/* tap burst */
+function burst(x, y) {
+  ['💕','✨','🌸','✦','💖'].forEach((c,i) => {
+    const el = document.createElement('div');
+    el.className = 'burst';
+    el.textContent = c;
+    const angle = (i-2)*28;
+    el.style.cssText = `left:${x}px;top:${y}px;animation-delay:${i*55}ms;transform:translate(-50%,-50%) rotate(${angle}deg)`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 700);
+  });
+}
+
+/* boot */
+(()=>{ const n=new Date(); year=n.getFullYear(); month=n.getMonth()+1; loadMonth(); })();
+
+/* data */
+async function loadMonth() {
+  document.getElementById('month-name').textContent = `${MONTHS[month-1]} ${year}`;
+  document.getElementById('stats').innerHTML = '';
+  skeleton();
+  try {
+    const r = await fetch(`${API}/api/entries/${year}/${month}`);
+    const arr = await r.json();
+    monthData = {};
+    arr.forEach(e => {
+      const d = +e.created_at.split('T')[0].split('-')[2];
+      if (!monthData[d]) monthData[d] = [];
+      monthData[d].push(e);
+    });
+  } catch { monthData = {}; }
+  renderCal(); renderStats();
+}
+
+function skeleton() {
+  const c = document.getElementById('calendar');
+  let h = '';
+  for (let i=0;i<35;i++) h += '<div class="day-cell"><div class="day-num" style="background:var(--bg2)"></div></div>';
+  c.innerHTML = h;
+}
+
+function renderCal() {
+  const c = document.getElementById('calendar');
+  const now = new Date();
+  const isNow = now.getFullYear()===year && now.getMonth()+1===month;
+  const today = now.getDate();
+  let fd = new Date(year,month-1,1).getDay();
+  const off = fd===0?6:fd-1;
+  const days = new Date(year,month,0).getDate();
+  let h = '';
+  for (let i=0;i<off;i++) h += '<div class="day-cell empty"></div>';
+  for (let d=1;d<=days;d++) {
+    const dow = (new Date(year,month-1,d).getDay()+6)%7;
+    const e   = monthData[d]||[];
+    let cls   = 'day-cell';
+    if (isNow && d===today)  cls += ' today';
+    if (d===selectedDay)     cls += ' selected';
+    if (dow>=5)              cls += ' weekend';
+    if (e.length)            cls += ' has-entries';
+    let dots = '';
+    if (e.length) {
+      dots = '<div class="day-dots">'+e.slice(0,4).map(x=>`<span class="day-dot">${x.emoji}</span>`).join('')+(e.length>4?'<span class="day-dot" style="font-size:8px;opacity:.5">+</span>':'')+'</div>';
+    }
+    h += `<div class="${cls}" onclick="tap(event,${d})"><span class="day-num">${d}</span>${dots}</div>`;
+  }
+  c.innerHTML = h;
+}
+
+function renderStats() {
+  const all = Object.values(monthData).flat();
+  const el = document.getElementById('stats');
+  if (!all.length) { el.outerHTML='<p class="no-hint" id="stats">Записей пока нет 🌙</p>'; return; }
+  const cnt = {};
+  all.forEach(e => cnt[e.emoji]=(cnt[e.emoji]||0)+1);
+  el.innerHTML = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,10)
+    .map(([em,n])=>`<div class="chip">${em}<span class="cnt">${n}</span></div>`).join('');
+}
+
+function tap(ev, d) {
+  burst(ev.clientX, ev.clientY);
+  selectedDay = d;
+  renderCal();
+  openSheet(d);
+}
+
+function openSheet(d) {
+  const entries = monthData[d]||[];
+  const dt = new Date(year,month-1,d);
+  document.getElementById('sheet-wday').textContent = WDAYS[dt.getDay()];
+  document.getElementById('sheet-day').textContent  = `${d} ${MONTHS_G[month-1]}`;
+  const ct = document.getElementById('sheet-entries');
+  if (!entries.length) {
+    ct.innerHTML = '<div class="empty-day"><span class="empty-icon">🌸</span><span class="empty-lbl">В этот день записей нет</span></div>';
+  } else {
+    ct.innerHTML = entries.map(e => {
+      const t = e.created_at.split('T')[1].slice(0,5);
+      return `<div class="entry-card" id="ec-${e.id}">
+        <div class="entry-emoji-box">${e.emoji}</div>
+        <div class="entry-body">
+          <div class="entry-time">${t}</div>
+          ${e.text?`<div class="entry-note">${e.text}</div>`:''}
+        </div>
+        <button class="del-btn" onclick="del(${e.id},${d})">🗑</button>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('overlay').classList.add('visible');
+  document.getElementById('sheet').classList.add('open');
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('visible');
+  document.getElementById('sheet').classList.remove('open');
+  selectedDay = null; renderCal();
+}
+
+async function del(id, day) {
+  const card = document.getElementById(`ec-${id}`);
+  card.classList.add('removing');
+  try { await fetch(`${API}/api/entries/${id}`,{method:'DELETE'}); }
+  catch { card.classList.remove('removing'); return; }
+  setTimeout(()=>{
+    monthData[day]=(monthData[day]||[]).filter(e=>e.id!==id);
+    if (!monthData[day].length) delete monthData[day];
+    card.remove();
+    const ct=document.getElementById('sheet-entries');
+    if (!ct.children.length) ct.innerHTML='<div class="empty-day"><span class="empty-icon">🌸</span><span class="empty-lbl">В этот день записей нет</span></div>';
+    renderCal(); renderStats();
+  },230);
+}
+
+function prevMonth() { if(month===1){month=12;year--;}else month--; selectedDay=null; snap(); loadMonth(); }
+function nextMonth() { if(month===12){month=1;year++;}else month++; selectedDay=null; snap(); loadMonth(); }
+function snap() {
+  document.getElementById('overlay').classList.remove('visible');
+  const s=document.getElementById('sheet'); s.style.transition='none'; s.classList.remove('open');
+  setTimeout(()=>s.style.transition='',50);
+}
+
+let t0=0;
+const sh=document.getElementById('sheet');
+sh.addEventListener('touchstart',e=>{t0=e.touches[0].clientY;},{passive:true});
+sh.addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-t0>60)closeSheet();},{passive:true});
+</script>
+</body>
+</html>
