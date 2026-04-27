@@ -25,15 +25,15 @@ async def serve_app():
     return FileResponse("webapp/index.html")
 
 
-@app.get("/api/entries/{year}/{month}")
-async def get_month(year: int, month: int):
-    rows = db.get_entries_for_month(year, month)
+@app.get("/api/entries/{user_id}/{year}/{month}")
+async def get_month(user_id: int, year: int, month: int):
+    rows = db.get_entries_for_month(user_id, year, month)
     return [dict(r) for r in rows]
 
 
-@app.get("/api/entries/{year}/{month}/{day}")
-async def get_day(year: int, month: int, day: int):
-    rows = db.get_entries_for_day(year, month, day)
+@app.get("/api/entries/{user_id}/{year}/{month}/{day}")
+async def get_day(user_id: int, year: int, month: int, day: int):
+    rows = db.get_entries_for_day(user_id, year, month, day)
     return [dict(r) for r in rows]
 
 
@@ -62,4 +62,4 @@ async def update(entry_id: int, body: UpdateBody):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("api:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("api:app", host="0.0.0.0", port=port)
