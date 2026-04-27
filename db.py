@@ -1,83 +1,92 @@
-import sqlite3
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from typing import Optional
-
-DB_PATH = "mood.db"
-
-
+ 
+DATABASE_URL = os.environ["DATABASE_URL"]
+ 
+ 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+ 
+ 
 def init_db():
     with get_conn() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS entries (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                emoji    TEXT    NOT NULL,
-                text     TEXT    DEFAULT '',
-                created_at TEXT  NOT NULL
-            )
-        """)
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS entries (
+                    id         SERIAL PRIMARY KEY,
+                    user_id    BIGINT NOT NULL,
+                    emoji      TEXT   NOT NULL,
+                    text       TEXT   DEFAULT '',
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_entries_user_month
+                ON entries (user_id, created_at)
+            """)
         conn.commit()
-
-
-def add_entry(emoji: str, text: str = "", dt: Optional[datetime] = None) -> int:
+ 
+ 
+def add_entry(user_id: int, emoji: str, text: str = "", dt=None) -> int:
     if dt is None:
         dt = datetime.now()
     with get_conn() as conn:
-        cur = conn.execute(
-            "INSERT INTO entries (emoji, text, created_at) VALUES (?, ?, ?)",
-            (emoji, text, dt.isoformat())
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO entries (user_id, emoji, text, created_at) VALUES (%s, %s, %s, %s) RETURNING id",
+                (user_id, emoji, text, dt)
+            )
+            row = cur.fetchone()
         conn.commit()
-        return cur.lastrowid
-
-
+        return row["id"]
+ 
+ 
 def get_entry(entry_id: int):
     with get_conn() as conn:
-        return conn.execute(
-            "SELECT * FROM entries WHERE id = ?", (entry_id,)
-        ).fetchone()
-
-
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM entries WHERE id = %s", (entry_id,))
+            return cur.fetchone()
+ 
+ 
 def update_entry_text(entry_id: int, text: str):
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE entries SET text = ? WHERE id = ?", (text, entry_id)
-        )
+        with conn.cursor() as cur:
+            cur.execute("UPDATE entries SET text = %s WHERE id = %s", (text, entry_id))
         conn.commit()
-
-
+ 
+ 
 def delete_entry(entry_id: int):
     with get_conn() as conn:
-        conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM entries WHERE id = %s", (entry_id,))
         conn.commit()
-
-
-def get_entries_for_month(year: int, month: int) -> list:
-    start = f"{year:04d}-{month:02d}-01"
-    # last day: next month minus 1 day
-    if month == 12:
-        end = f"{year + 1:04d}-01-01"
-    else:
-        end = f"{year:04d}-{month + 1:02d}-01"
-
+ 
+ 
+def get_entries_for_month(user_id: int, year: int, month: int) -> list:
     with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM entries WHERE created_at >= ? AND created_at < ? ORDER BY created_at",
-            (start, end)
-        ).fetchall()
-    return rows
-
-
-def get_entries_for_day(year: int, month: int, day: int) -> list:
-    prefix = f"{year:04d}-{month:02d}-{day:02d}"
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT * FROM entries
+                WHERE user_id = %s
+                  AND EXTRACT(YEAR  FROM created_at) = %s
+                  AND EXTRACT(MONTH FROM created_at) = %s
+                ORDER BY created_at
+            """, (user_id, year, month))
+            return cur.fetchall()
+ 
+ 
+def get_entries_for_day(user_id: int, year: int, month: int, day: int) -> list:
     with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM entries WHERE created_at LIKE ? ORDER BY created_at",
-            (prefix + "%",)
-        ).fetchall()
-    return rows
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT * FROM entries
+                WHERE user_id = %s
+                  AND EXTRACT(YEAR  FROM created_at) = %s
+                  AND EXTRACT(MONTH FROM created_at) = %s
+                  AND EXTRACT(DAY   FROM created_at) = %s
+                ORDER BY created_at
+            """, (user_id, year, month, day))
+            return cur.fetchall()
