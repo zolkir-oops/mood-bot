@@ -8,7 +8,7 @@ from telegram.ext import (
 import db
 
 TOKEN = os.environ["BOT_TOKEN"]
-WEBAPP_URL = os.environ["WEBAPP_URL"]   # https://your-server.com
+WEBAPP_URL = os.environ["WEBAPP_URL"]
 
 
 def contains_emoji(text: str) -> bool:
@@ -41,7 +41,6 @@ def extract_emoji(text: str):
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    # Ставим кнопку-меню «Открыть календарь»
     await ctx.bot.set_chat_menu_button(
         chat_id=update.effective_chat.id,
         menu_button=MenuButtonWebApp(
@@ -60,6 +59,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    user_id = update.effective_user.id
 
     if not contains_emoji(text):
         await update.message.reply_text(
@@ -69,7 +69,7 @@ async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     emoji, rest = extract_emoji(text)
-    db.add_entry(emoji, rest)
+    db.add_entry(user_id, emoji, rest)
     now = datetime.now()
 
     note = f"\n_{rest}_" if rest else ""
@@ -80,7 +80,6 @@ async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 def build_app():
-    """Фабрика — создаёт приложение бота (используется из main.py)."""
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
